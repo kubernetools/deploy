@@ -35,11 +35,10 @@ jobs:
           mkdir -p site
           tar -xzf site-release/*.tgz --strip-components=1 -C site
 
-      - name: Detect latest Kubernetes version
-        id: k8s-version
+      - name: Render nginx config
         run: |
           latest=$(ls site/docs/ | grep -E '^v[0-9]+\.[0-9]+$' | sort -V | tail -1)
-          echo "LATEST_K8S_VERSION=$latest" >> "$GITHUB_OUTPUT"
+          sed -i "s|__LATEST_K8S_VERSION__|${latest}|g" nginx.conf
 
       - name: Log in to GHCR
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
@@ -66,4 +65,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             SITE_VERSION=${{ github.ref_name }}
-            LATEST_K8S_VERSION=${{ steps.k8s-version.outputs.LATEST_K8S_VERSION }}
