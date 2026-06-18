@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      site_version:
+        description: 'Site release tag to download from kubernetools/site (e.g. v0.1.1)'
+        required: true
 
 permissions:
   contents: read
@@ -23,7 +28,7 @@ jobs:
 
       - name: Download site release
         run: |
-          gh release download "${{ github.ref_name }}" \
+          gh release download "${{ inputs.site_version || github.ref_name }}" \
             --repo kubernetools/site \
             --pattern "*.tgz" \
             --dir site-release
