@@ -1,0 +1,55 @@
+name: PR check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Download site release
+        run: |
+          gh release download \
+            --repo kubernetools/site \
+            --pattern "*.tgz" \
+            --dir site-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Extract site
+        run: |
+          mkdir -p site
+          tar -xzf site-release/*.tgz --strip-components=1 -C site
+
+      - name: Render nginx config
+        id: render-config
+        run: |
+          versions=$(ls site/docs/ | grep -E '^v[0-9]+\.[0-9]+$' | sort -V)
+          latest=$(echo "$versions" | tail -1)
+          older=$(echo "$versions" | tail -2 | head -1)
+          sed -i "s|__LATEST_K8S_VERSION__|${latest}|g" nginx.conf
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "older=$older"   >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        run: podman build --tag kubernetools-pr-test --build-arg SITE_VERSION=pr-check .
+
+      - name: Run integration tests
+        env:
+          LATEST_K8S_VERSION: ${{ steps.render-config.outputs.latest }}
+          OLDER_K8S_VERSION: ${{ steps.render-config.outputs.older }}
+        run: |
+          podman run -d --rm --name nginx-test -p 8080:8080 kubernetools-pr-test
+          until curl -sf -H "Host: www.kubernetools.com" http://localhost:8080/ -o /dev/null; do sleep 1; done
+          bash tests/run-tests.sh
+
+      - name: Stop container
+        if: always()
+        run: podman stop nginx-test || true
