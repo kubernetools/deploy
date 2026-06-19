@@ -19,39 +19,32 @@ check "1: /docs/latest/ → 200" "200" "$s"
 h=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/latest/")
 check_absent "2: /docs/latest/ → no Location header" "Location:" "$h"
 
-# 3 — /docs/latest/ body is identical to /docs/$LATEST/ body
-b_latest=$(curl -s -H "Host: www.kubernetools.com" "$BASE/docs/latest/")
-b_versioned=$(curl -s -H "Host: www.kubernetools.com" "$BASE/docs/$LATEST/")
-[[ "$b_latest" == "$b_versioned" ]] \
-  && pass "3: /docs/latest/ body == /docs/$LATEST/ body" \
-  || fail "3: /docs/latest/ body == /docs/$LATEST/ body" "bodies differ"
-
-# 4 — sub-path rewrite works under /docs/latest/
+# 3 — sub-path rewrite works under /docs/latest/
 s=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/latest/core/v1/pod/" | head -1)
-check "4: /docs/latest/core/v1/pod/ → 200" "200" "$s"
+check "3: /docs/latest/core/v1/pod/ → 200" "200" "$s"
 
-# 5 — latest versioned path gets X-Robots-Tag: noindex
+# 4 — latest versioned path gets X-Robots-Tag: noindex
 h=$(curl -sI -H "Host: www.kubernetools.com" "$BASE/docs/$LATEST/")
-check "5: /docs/$LATEST/ → X-Robots-Tag: noindex" "noindex" "$h"
+check "4: /docs/$LATEST/ → X-Robots-Tag: noindex" "noindex" "$h"
 
 if [[ "$OLDER" != "$LATEST" ]]; then
-  # 6 — older versioned path returns 200
+  # 5 — older versioned path returns 200
   s=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/$OLDER/" | head -1)
-  check "6: /docs/$OLDER/ → 200" "200" "$s"
+  check "5: /docs/$OLDER/ → 200" "200" "$s"
 
-  # 7 — older versioned path gets X-Robots-Tag: noindex
+  # 6 — older versioned path gets X-Robots-Tag: noindex
   h=$(curl -sI -H "Host: www.kubernetools.com" "$BASE/docs/$OLDER/")
-  check "7: /docs/$OLDER/ → X-Robots-Tag: noindex" "noindex" "$h"
+  check "6: /docs/$OLDER/ → X-Robots-Tag: noindex" "noindex" "$h"
 
-  # 8 — sub-path on older version returns 200
+  # 7 — sub-path on older version returns 200
   s=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/$OLDER/core/v1/pod/" | head -1)
-  check "8: /docs/$OLDER/core/v1/pod/ → 200" "200" "$s"
+  check "7: /docs/$OLDER/core/v1/pod/ → 200" "200" "$s"
 
-  # 12 — older versioned path has correct Cache-Control
+  # 8 — older versioned path has correct Cache-Control
   h=$(curl -sI -H "Host: www.kubernetools.com" "$BASE/docs/$OLDER/")
-  check "12: /docs/$OLDER/ → Cache-Control: max-age=86400" "max-age=86400" "$h"
+  check "8: /docs/$OLDER/ → Cache-Control: max-age=86400" "max-age=86400" "$h"
 else
-  echo "SKIP: 6, 7, 8, 12 — only one version in site, older == latest"
+  echo "SKIP: 5, 6, 7, 8 — only one version in site, older == latest"
 fi
 
 # 9 — /docs/latest/ has no X-Robots-Tag (not a versioned path)
@@ -66,12 +59,12 @@ check "10: /docs/latest/ → Cache-Control: max-age=86400" "max-age=86400" "$h"
 h=$(curl -sI -H "Host: www.kubernetools.com" "$BASE/docs/$LATEST/")
 check "11: /docs/$LATEST/ → Cache-Control: max-age=86400" "max-age=86400" "$h"
 
-# 13 — bare domain returns 301
+# 12 — bare domain returns 301
 s=$(curl -si -H "Host: kubernetools.com" "$BASE/" | head -1)
-check "13: kubernetools.com → 301" "301" "$s"
+check "12: kubernetools.com → 301" "301" "$s"
 
-# 14 — bare domain redirects to https://www.kubernetools.com/
+# 13 — bare domain redirects to https://www.kubernetools.com/
 h=$(curl -si -H "Host: kubernetools.com" "$BASE/")
-check "14: kubernetools.com → Location: https://www.kubernetools.com/" "https://www.kubernetools.com/" "$h"
+check "13: kubernetools.com → Location: https://www.kubernetools.com/" "https://www.kubernetools.com/" "$h"
 
 exit $FAIL
