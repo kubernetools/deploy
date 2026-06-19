@@ -41,9 +41,14 @@ jobs:
           tar -xzf site-release/*.tgz --strip-components=1 -C site
 
       - name: Render nginx config
+        id: render-config
         run: |
-          latest=$(ls site/docs/ | grep -E '^v[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          versions=$(ls site/docs/ | grep -E '^v[0-9]+\.[0-9]+$' | sort -V)
+          latest=$(echo "$versions" | tail -1)
+          older=$(echo "$versions" | tail -2 | head -1)
           sed -i "s|__LATEST_K8S_VERSION__|${latest}|g" nginx.conf
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "older=$older"   >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
@@ -61,12 +66,35 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest
 
-      - name: Build and push
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf  # v7.2.0
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            SITE_VERSION=${{ github.ref_name }}
+      - name: Build image
+        run: |
+          tags_args=()
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] && tags_args+=(--tag "$tag")
+          done <<< "${{ steps.meta.outputs.tags }}"
+          label_args=()
+          while IFS= read -r label; do
+            [[ -n "$label" ]] && label_args+=(--label "$label")
+          done <<< "${{ steps.meta.outputs.labels }}"
+          podman build "${tags_args[@]}" "${label_args[@]}" \
+            --build-arg SITE_VERSION=${{ github.ref_name }} .
+
+      - name: Run integration tests
+        env:
+          LATEST_K8S_VERSION: ${{ steps.render-config.outputs.latest }}
+          OLDER_K8S_VERSION: ${{ steps.render-config.outputs.older }}
+        run: |
+          image=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          podman run -d --rm --name nginx-test -p 8080:8080 "$image"
+          until curl -sf -H "Host: www.kubernetools.com" http://localhost:8080/ -o /dev/null; do sleep 1; done
+          bash tests/run-tests.sh
+
+      - name: Stop container
+        if: always()
+        run: podman stop nginx-test || true
+
+      - name: Push image
+        run: |
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] && podman push "$tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
