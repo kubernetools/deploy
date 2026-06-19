@@ -28,13 +28,12 @@ jobs:
           mkdir -p site
           tar -xzf site-release/*.tgz --strip-components=1 -C site
 
-      - name: Render nginx config
+      - name: Detect site versions
         id: render-config
         run: |
           versions=$(ls site/docs/ | grep -E '^v[0-9]+\.[0-9]+$' | sort -V)
           latest=$(echo "$versions" | tail -1)
           older=$(echo "$versions" | tail -2 | head -1)
-          sed -i "s|__LATEST_K8S_VERSION__|${latest}|g" nginx.conf
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "older=$older"   >> "$GITHUB_OUTPUT"
 
