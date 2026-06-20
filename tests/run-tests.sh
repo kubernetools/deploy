@@ -67,4 +67,16 @@ check "12: kubernetools.com → 301" "301" "$s"
 h=$(curl -si -H "Host: kubernetools.com" "$BASE/")
 check "13: kubernetools.com → Location: https://www.kubernetools.com/" "https://www.kubernetools.com/" "$h"
 
+# 14 — /docs/ redirects to /docs/latest/ with 301
+s=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/" | head -1)
+check "14: /docs/ → 301" "301" "$s"
+
+# 15 — /docs/ redirect Location is /docs/latest/
+h=$(curl -si -H "Host: www.kubernetools.com" "$BASE/docs/")
+check "15: /docs/ → Location: /docs/latest/" "/docs/latest/" "$h"
+
+# 16 — homepage returns 200
+s=$(curl -si -H "Host: www.kubernetools.com" "$BASE/" | head -1)
+check "16: / → 200" "200" "$s"
+
 exit $FAIL
